@@ -1,1 +1,38 @@
 node_modules/
+# Node modules and dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Java-related files
+*.class
+*.jar
+*.war
+*.ear
+*.log
+
+# IDE-specific files
+.vscode/
+.idea/
+*.iml
+
+# Environment and configuration files
+.env
+*.env.local
+config.json
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Build and output directories
+/dist
+/build
+/out
+/target
+/bin
+
+# Cache files
+*.cache
+*.tmp
+npm-debug.log*
