@@ -3,107 +3,160 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#172b3a">
   <title>Weather App</title>
   <link rel="stylesheet" href="weather.css">
 </head>
 <body>
-  <div class="card">
-    <div class="search">
-      <input type="text" placeholder="Enter city name" spellcheck="false">
-      <button><img src="images/search.png" alt="Search Button"></button>
-    </div>
-  <div class="error">
-     <p>⚠ City not found. Please try again.</p>
-  </div>
-  <div class="weather">
-    <img src="images/rain.png" class="weather-icon" alt="Weather Icon">
-    <h1 class="temp">22°C</h1>   
-    <h2 class="city">New York</h2>
-    <div class="details">
-       <div class="col">
-          <img src="images/humidity.png" alt="Humidity Icon">
+  <main class="card">
+    <h1 class="app-title">Weather</h1>
+    <form class="search" aria-label="Search for weather">
+      <label class="visually-hidden" for="city-input">City name</label>
+      <input id="city-input" name="city" type="search" placeholder="Enter city name" autocomplete="off" required>
+      <button type="submit" aria-label="Search">
+        <img src="images/search.svg" alt="">
+      </button>
+    </form>
+
+    <details class="settings">
+      <summary>API key settings</summary>
+      <form class="api-key-form">
+        <label for="api-key">OpenWeatherMap API key</label>
+        <input id="api-key" name="api-key" type="password" autocomplete="off" spellcheck="false">
+        <div class="key-actions">
+          <button type="submit">Save key</button>
+          <button class="clear-key" type="button">Clear saved key</button>
+        </div>
+        <p class="key-status" role="status" aria-live="polite"></p>
+      </form>
+    </details>
+
+    <p class="error" role="alert" aria-live="polite" hidden></p>
+
+    <section class="weather" aria-live="polite" aria-label="Current weather" hidden>
+      <img src="images/clouds.svg" class="weather-icon" alt="Cloudy">
+      <p class="temp">--°C</p>
+      <h2 class="city"></h2>
+      <div class="details">
+        <div class="col">
+          <img src="images/humidity.svg" alt="">
           <div>
-            <p class="humidity">50%</p>
+            <p class="humidity">--%</p>
             <p>Humidity</p>
           </div>
-      </div>
+        </div>
         <div class="col">
-          <img src="images/wind.png" alt="Wind Speed Icon">
+          <img src="images/wind.svg" alt="">
           <div>
-            <p class="wind">15 km/h</p>
-            <p>Wind Speed</p>
+            <p class="wind">-- km/h</p>
+            <p>Wind speed</p>
           </div>
+        </div>
       </div>
-   </div>
-</div>
-
+    </section>
+  </main>
 
   <script>
-    const apiKey = "14d82863ff478abfa04f570aa7c25860";
-    const apiUrl = "https://api.openweathermap.org/data/2.5/weather?units=metric&q=";
-
-    const searchBox = document.querySelector(".search input");
-    const searchBtn = document.querySelector(".search button");
+    const apiUrl = "https://api.openweathermap.org/data/2.5/weather";
+    const searchForm = document.querySelector(".search");
+    const searchBox = document.querySelector("#city-input");
+    const apiKeyForm = document.querySelector(".api-key-form");
+    const apiKeyInput = document.querySelector("#api-key");
+    const keyStatus = document.querySelector(".key-status");
     const weatherIcon = document.querySelector(".weather-icon");
     const errorBox = document.querySelector(".error");
     const weatherBox = document.querySelector(".weather");
+    const apiKeyStorageKey = "weather-app-openweathermap-api-key";
+    const weatherIcons = {
+      Clear: "clear",
+      Clouds: "clouds",
+      Drizzle: "drizzle",
+      Mist: "mist",
+      Haze: "mist",
+      Fog: "mist",
+      Rain: "rain",
+      Snow: "snow",
+      Thunderstorm: "thunderstorm"
+    };
+
+    function showError(message) {
+      errorBox.textContent = message;
+      errorBox.hidden = false;
+      weatherBox.hidden = true;
+    }
 
     async function checkWeather(city) {
-    try {
-        const response = await fetch(apiUrl + city + `&appid=${apiKey}`);
+      const apiKey = localStorage.getItem(apiKeyStorageKey)?.trim();
+      if (!apiKey) {
+        showError("Add your OpenWeatherMap API key in API key settings before searching.");
+        return;
+      }
 
+      const url = new URL(apiUrl);
+      url.search = new URLSearchParams({
+        units: "metric",
+        q: city,
+        appid: apiKey
+      }).toString();
+
+      try {
+        const response = await fetch(url);
         if (!response.ok) {
-            throw new Error("City not found");
+          if (response.status === 404) {
+            throw new Error("City not found. Check the spelling and try again.");
+          }
+          if (response.status === 401) {
+            throw new Error("The API key is invalid or not active. Check config.js.");
+          }
+          throw new Error(`Weather lookup failed (HTTP ${response.status}). Please try again.`);
         }
 
         const data = await response.json();
+        const condition = data.weather[0].main;
+        const iconName = weatherIcons[condition] || "clouds";
 
-        document.querySelector(".city").innerHTML = data.name;
-        document.querySelector(".temp").innerHTML = Math.round(data.main.temp) + "°C";
-        document.querySelector(".humidity").innerHTML = data.main.humidity + "%";
-        document.querySelector(".wind").innerHTML = data.wind.speed + " km/h";
+        document.querySelector(".city").textContent = data.name;
+        document.querySelector(".temp").textContent = `${Math.round(data.main.temp)}°C`;
+        document.querySelector(".humidity").textContent = `${data.main.humidity}%`;
+        document.querySelector(".wind").textContent = `${Math.round(data.wind.speed * 3.6)} km/h`;
+        weatherIcon.src = `images/${iconName}.svg`;
+        weatherIcon.alt = condition;
 
-        if (data.weather[0].main === "Clouds") {
-            weatherIcon.src = "images/clouds.png";
-            weatherIcon.alt = "Clouds Image";  
-        } else if (data.weather[0].main === "Clear") {
-            weatherIcon.src = "images/clear.png";
-            weatherIcon.alt = "Clear Sky Image";  
-        } else if (data.weather[0].main === "Rain") {
-            weatherIcon.src = "images/rain.png";
-            weatherIcon.alt = "Rainy Weather Image";  
-        } else if (data.weather[0].main === "Drizzle") {
-            weatherIcon.src = "images/drizzle.png";
-            weatherIcon.alt = "Drizzle Image";  
-        } else if (data.weather[0].main === "Mist") {
-            weatherIcon.src = "images/mist.png";
-            weatherIcon.alt = "Misty Weather Image";  
-        }
-
-        document.querySelector(".weather").style.display = "block";
-        document.querySelector(".error").style.display = "none";
-    } catch (error) {
-        document.querySelector(".weather").style.display = "none";
-        document.querySelector(".error").style.display = "block";
+        errorBox.hidden = true;
+        weatherBox.hidden = false;
+      } catch (error) {
+        showError(error instanceof TypeError
+          ? "Could not connect to the weather service. Check your connection and try again."
+          : error.message);
+      }
     }
-}
 
+    apiKeyForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const apiKey = apiKeyInput.value.trim();
+      if (!apiKey) {
+        keyStatus.textContent = "Enter an API key before saving.";
+        return;
+      }
 
-    searchBtn.addEventListener("click", () => {
-        const city = searchBox.value.trim();
-        if (city) {
-            checkWeather(city);
-        }
+      localStorage.setItem(apiKeyStorageKey, apiKey);
+      apiKeyInput.value = "";
+      keyStatus.textContent = "API key saved in this browser.";
     });
 
-    searchBox.addEventListener("keypress", (event) => {
-    if (event.key === "Enter") {
-        const city = searchBox.value.trim();
-        if (city) {
-            checkWeather(city);
-        }
-    }
-});
+    document.querySelector(".clear-key").addEventListener("click", () => {
+      localStorage.removeItem(apiKeyStorageKey);
+      apiKeyInput.value = "";
+      keyStatus.textContent = "Saved API key cleared.";
+    });
+
+    searchForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const city = searchBox.value.trim();
+      if (city) {
+        checkWeather(city);
+      }
+    });
   </script>
 </body>
 </html>
